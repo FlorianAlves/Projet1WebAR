@@ -4,44 +4,15 @@
     <meta charset="utf-8" />
     <title>Test WebAR avec MindAR</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <!-- A-Frame -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <!-- MindAR -->
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    height: 100%;
-    width: 100%;
-    background: #000 !important;
-    box-sizing: border-box;
-  }
-
-  body {
-    position: fixed;
-    inset: 0;
-    background: #000 !important;
-  }
-
-  a-scene, .mindar-ui-overlay, .mindar-ui-overlay .mindar-ui-loader {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: transparent !important;
-    z-index: 0;
-  }
-</style>
+      html, body { margin:0; padding:0; overflow:hidden; background:#000; height:100%; width:100%; }
+      a-scene { position:fixed!important; top:0!important; left:0!important; width:100vw!important; height:100vh!important; }
+    </style>
   </head>
-
   <body>
     <script src="app.js"></script>
-
     <a-scene
       mindar-image="imageTargetSrc: ./targets/targets.mind;"
       embedded
@@ -50,17 +21,9 @@
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: true"
     >
-      <a-assets>
-        <!-- Tu peux précharger ici des images si nécessaire -->
-      </a-assets>
-
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
       <a-entity mindar-image-target="targetIndex: 0">
-        <!-- Objet qui s'affiche quand l'image est détectée -->
-       <a-entity mindar-image-target="targetIndex: 0">
-  <a-box id="anim-target0" color="red" position="0 0 -0.5" visible="true"></a-box>
-</a-entity>
+        <a-box id="anim-target0" color="red" position="0 0 0" width="0.3" height="0.3" depth="0.3" visible="false"></a-box>
       </a-entity>
     </a-scene>
   </body>
