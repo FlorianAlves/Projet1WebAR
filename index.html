@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Test WebAR avec MindAR</title>
+    <title>WebAR PNG</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
@@ -23,14 +23,7 @@
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       <a-entity mindar-image-target="targetIndex: 0">
-        <a-image
-  id="png-on-target"
-  src="./animations/target0/frame_000.png"
-  position="0 0 0"
-  width="1"
-  height="1"
-  visible="false"
-></a-image>
+        <a-image id="png-on-target" src="./animations/target0/frame_000.png" position="0 0 0" width="1" height="1" visible="false"></a-image>
       </a-entity>
     </a-scene>
   </body>
