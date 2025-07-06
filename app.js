@@ -11,13 +11,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   sceneEl.addEventListener("targetFound", () => {
     console.log("🎯 Cible détectée !");
-    const anim = document.querySelector("#anim-target0");
-    anim.setAttribute("visible", true);
+    const png = document.querySelector("#png-on-target");
+    png.setAttribute("visible", true);
   });
 
   sceneEl.addEventListener("targetLost", () => {
     console.log("❌ Cible perdue !");
-    const anim = document.querySelector("#anim-target0");
-    anim.setAttribute("visible", false);
+    const png = document.querySelector("#png-on-target");
+    png.setAttribute("visible", false);
   });
 });
