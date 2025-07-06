@@ -7,11 +7,14 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
-    <a-scene mindar-image="imageTargetSrc: ./targets/targets.mind;" 
-             embedded color-space="sRGB" 
-             renderer="precision: mediump; antialias: true;" 
-             vr-mode-ui="enabled: false" 
-             device-orientation-permission-ui="enabled: true">
+    <a-scene
+  mindar-image="imageTargetSrc: ./targets/targets.mind;"
+  embedded
+  color-space="sRGB"
+  renderer="precision: mediump; antialias: true;"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: true"
+>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
