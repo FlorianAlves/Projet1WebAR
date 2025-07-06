@@ -8,6 +8,26 @@
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <!-- MindAR -->
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    height: 100%;
+    width: 100%;
+  }
+
+  a-scene {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    height: 100vh !important;
+    width: 100vw !important;
+    z-index: 0;
+  }
+</style>
+
   </head>
 
   <body>
