@@ -2,13 +2,12 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>WebAR PNG</title>
+    <title>Test MindAR PNG</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-      html, body { margin:0; padding:0; overflow:hidden; background:#000; height:100%; width:100%; }
-      a-scene { position:fixed!important; top:0!important; left:0!important; width:100vw!important; height:100vh!important; }
+      html, body { margin:0; padding:0; overflow:hidden; background:#000; }
     </style>
   </head>
   <body>
@@ -16,14 +15,13 @@
     <a-scene
       mindar-image="imageTargetSrc: ./targets/targets.mind;"
       embedded
-      color-space="sRGB"
-      renderer="precision: mediump; antialias: true;"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: true"
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       <a-entity mindar-image-target="targetIndex: 0">
-        <a-image id="png-on-target" src="./animations/target0/frame_000.png" position="0 0 0" width="1" height="1" visible="false"></a-image>
+        <a-image id="png-on-target" src="./animations/target0/frame_000.png"
+          position="0 0 0" width="0.5" height="0.5" visible="false"></a-image>
       </a-entity>
     </a-scene>
   </body>
