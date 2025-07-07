@@ -1,86 +1,94 @@
-<!DOCTYPE html>
+ï»¿<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <title>WebAR – PNG animé</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1, user-scalable=no" />
+  <meta charset="utf-8"/>
+  <title>WebAR â€“ PNG animÃ©</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
 
-  <!-- A-Frame & MindAR -->
+  <!-- 1) A-Frame & MindAR -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
-    <!-- Votre logique -->
+
+  <!-- 2) Component png-sequence dÃ©clarÃ© AVANT la scÃ¨ne -->
+  <script>
+    AFRAME.registerComponent('png-sequence', {
+      schema: {
+        prefix: { type: 'string' },
+        count:  { type: 'int',    default: 20 },
+        fps:    { type: 'number', default: 12 }
+      },
+      init() {
+        console.log('ðŸ”§ png-sequence initialisÃ©, count =', this.data.count);
+        this.frame   = 0;
+        this.elapsed = 0;
+        this.duration = 1000 / this.data.fps;
+        const pad = n => n.toString().padStart(3,'0');
+        this.frames = Array.from({ length: this.data.count }, (_, i) =>
+          `${this.data.prefix}${pad(i)}.png`
+        );
+      },
+      start() { this.playing = true; },
+      stop()  { this.playing = false; this.frame = 0; },
+      tick(time, delta) {
+        if (!this.playing) return;
+        this.elapsed += delta;
+        if (this.elapsed >= this.duration) {
+          this.elapsed = 0;
+          this.frame = (this.frame + 1) % this.data.count;
+          this.el.setAttribute('src', this.frames[this.frame]);
+        }
+      }
+    });
+  </script>
+
+  <!-- 3) Ton script JS (dÃ©fer) -->
   <script defer src="app.js"></script>
-  <!-- Plein écran caméra -->
-<style>
-  /* 1) Page et body transparents pour laisser passer la vidéo */
-  html, body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    width: 100vw;
-    height: 100vh;
-    background: transparent !important;
-  }
 
-  /* 2) Vidéo caméra pleine page, sous le canvas A-Frame */
-  video {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    object-fit: cover !important;
-    z-index: 0 !important;
-  }
-
-  /* 3) Scene et canvas WebGL au-dessus de la vidéo */
-  a-scene,
-  canvas {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: transparent !important;
-    z-index: 1 !important;
-  }
-
-  /* 4) UI MindAR au-dessus de tout */
-  .mindar-ui-overlay,
-  .mindar-ui-loader {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background: transparent !important;
-    z-index: 2 !important;
-  }
-</style>
+  <!-- 4) CSS plein Ã©cran + disposition des calques -->
+  <style>
+    html, body, a-scene, canvas {
+      margin:0; padding:0;
+      width:100vw; height:100vh;
+      overflow:hidden; background:transparent;
+      position:fixed; top:0; left:0;
+    }
+    video {
+      position:fixed!important;
+      top:0!important; left:0!important;
+      width:100vw!important; height:100vh!important;
+      object-fit:cover!important;
+      z-index:0!important;
+    }
+    a-scene, canvas {
+      z-index:1!important;
+      background:transparent!important;
+    }
+    .mindar-ui-overlay, .mindar-ui-loader {
+      z-index:2!important;
+      background:transparent!important;
+    }
+  </style>
 </head>
 <body>
   <a-scene
-  mindar-image="imageTargetSrc: ./targets/targets.mind;"
-  embedded
-  color-space="sRGB"
-  renderer="antialias: true; alpha: true;"
-  vr-mode-ui="enabled: false"
-  device-orientation-permission-ui="enabled: true"
->
-    <a-camera look-controls="enabled:false"></a-camera>
+    mindar-image="imageTargetSrc: ./targets/targets.mind;"
+    embedded
+    renderer="antialias: true; alpha: true;"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: true"
+  >
+    <a-camera look-controls="enabled: false"></a-camera>
 
-    <!-- Cible index 0 -->
+    <!-- Cible index 0 qui jouera la sÃ©quence PNG -->
     <a-entity mindar-image-target="targetIndex: 0">
-  <a-image
-    id="png-on-target"
-    png-sequence="prefix: ./animations/target0/frame_; count: 20; fps: 12"
-    width="1"
-    height="1"
-    visible="false">
-  </a-image>
-</a-entity>
+      <a-image
+        id="png-on-target"
+        src="./animations/target0/frame_000.png"
+        png-sequence="prefix: ./animations/target0/frame_; count: 20; fps: 12"
+        width="1" height="1"
+        visible="false">
+      </a-image>
+    </a-entity>
   </a-scene>
 </body>
 </html>
