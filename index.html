@@ -9,31 +9,6 @@
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-  <!-- Component png-sequence (chargé avant la scène) -->
-  <script>
-      init() {
-        this.frame   = 0;
-        this.elapsed = 0;
-        this.duration = 1000 / this.data.fps;
-        const pad = n => n.toString().padStart(3,'0');
-        this.frames = Array.from({ length: this.data.count }, (_, i) =>
-          `${this.data.prefix}${pad(i)}.png`
-        );
-      },
-      start() { this.playing = true; },
-      stop()  { this.playing = false; this.frame = 0; },
-      tick(time, delta) {
-        if (!this.playing) return;
-        this.elapsed += delta;
-        if (this.elapsed >= this.duration) {
-          this.elapsed = 0;
-          this.frame = (this.frame + 1) % this.data.count;
-          this.el.setAttribute('src', this.frames[this.frame]);
-        }
-      }
-    });
-  </script>
-
   <!-- Ton script principal -->
   <script defer src="app.js"></script>
 
