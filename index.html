@@ -1,73 +1,44 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>WebAR PNG Tracker</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background: #000 !important;
-        width: 100vw;
-        height: 100vh;
-        box-sizing: border-box;
-      }
-      body, a-scene {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background: transparent !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        box-sizing: border-box;
-        z-index: 0 !important;
-      }
-      canvas {
-        width: 100vw !important;
-        height: 100vh !important;
-        max-width: 100vw !important;
-        max-height: 100vh !important;
-        background: transparent !important;
-        display: block !important;
-      }
-      .mindar-ui-overlay, .mindar-ui-loader, .mindar-ui-scanning {
-        background: transparent !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        z-index: 10 !important;
-      }
-    </style>
-  </head>
-  <body>
-    <script src="app.js"></script>
-    <a-scene
-      mindar-image="imageTargetSrc: ./targets/targets.mind;"
-      embedded
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: true"
-    >
-      <a-assets>
-        <img id="tracked-png" src="./animations/target0/frame_000.png">
-      </a-assets>
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-      <a-entity mindar-image-target="targetIndex: 0">
-        <a-image id="png-on-target"
-                 src="#tracked-png"
-                 position="0 0 0"
-                 width="1"
-                 height="1"
-                 visible="false">
-        </a-image>
-      </a-entity>
-    </a-scene>
-  </body>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>WebAR – PNG animé</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1, user-scalable=no" />
+
+  <!-- A-Frame & MindAR -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
+  <!-- Plein écran caméra -->
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body,a-scene,canvas{
+      width:100vw;height:100vh;background:#000;overflow:hidden;
+      position:fixed;top:0;left:0
+    }
+  </style>
+
+  <!-- Votre logique -->
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets/targets.mind;"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: true"
+    embedded
+  >
+    <a-camera look-controls="enabled:false"></a-camera>
+
+    <!-- Cible index 0 -->
+    <a-entity mindar-image-target="targetIndex:0">
+      <!-- L’entité qui jouera la séquence PNG -->
+      <a-image id="anim-seq"
+               png-sequence="prefix: ./animations/target0/frame_; count: 20; fps: 12"
+               width="1" height="1"
+               visible="false">
+      </a-image>
+    </a-entity>
+  </a-scene>
+</body>
 </html>
