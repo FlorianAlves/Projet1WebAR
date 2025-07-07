@@ -48,34 +48,26 @@ AFRAME.registerComponent('png-sequence', {
  *  Gestion de la détection MindAR
  * --------------------------------------------------------------------------*/
 document.addEventListener("DOMContentLoaded", () => {
-  const sceneEl = document.querySelector("a-scene");
+  const scene = document.querySelector("a-scene");
+  const pngEl = document.querySelector("#png-on-target");
 
-  sceneEl.addEventListener("arReady", () => console.log("✅ MindAR prêt"));
-  sceneEl.addEventListener("renderstart", () => {
-    console.log("▶️ A-Frame rendu démarré");
+  if (!pngEl) {
+    console.error("❌ Impossible de trouver #png-on-target dans le DOM");
+    return;
+  }
 
-    // Style vidéo au cas où le CSS natif ne s'applique pas
-    const vid = document.querySelector("video");
-    if (vid) {
-      Object.assign(vid.style, {
-        position: "fixed",
-        top: "0",
-        left: "0",
-        width: "100vw",
-        height: "100vh",
-        objectFit: "cover",
-        zIndex: "0",
-      });
-    }
-  });
+  // Récupérer le component png-sequence si tu l’utilises
+  const pngSeq = pngEl.components["png-sequence"];
 
-  sceneEl.addEventListener("targetFound", () => {
+  scene.addEventListener("targetFound", () => {
     console.log("🎯 Cible détectée !");
-    document.querySelector("#png-on-target").setAttribute("visible", true);
+    pngEl.setAttribute("visible", "true");
+    if (pngSeq) pngSeq.start();  // démarre l’animation si tu utilises le component
   });
 
-  sceneEl.addEventListener("targetLost", () => {
-    console.log("❌ Cible perdue !");
-    document.querySelector("#png-on-target").setAttribute("visible", false);
+  scene.addEventListener("targetLost", () => {
+    console.log("🚫 Cible perdue !");
+    if (pngSeq) pngSeq.stop();
+    pngEl.setAttribute("visible", "false");
   });
 });

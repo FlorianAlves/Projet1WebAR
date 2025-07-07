@@ -74,14 +74,15 @@
     <a-camera look-controls="enabled:false"></a-camera>
 
     <!-- Cible index 0 -->
-    <a-entity mindar-image-target="targetIndex:0">
-      <!-- L’entité qui jouera la séquence PNG -->
-      <a-image id="anim-seq"
-               png-sequence="prefix: ./animations/target0/frame_; count: 20; fps: 12"
-               width="1" height="1"
-               visible="false">
-      </a-image>
-    </a-entity>
+    <a-entity mindar-image-target="targetIndex: 0">
+  <a-image
+    id="png-on-target"
+    png-sequence="prefix: ./animations/target0/frame_; count: 30; fps: 12"
+    width="1"
+    height="1"
+    visible="false">
+  </a-image>
+</a-entity>
   </a-scene>
 </body>
 </html>
