@@ -11,12 +11,6 @@
 
   <!-- Component png-sequence (chargé avant la scène) -->
   <script>
-    AFRAME.registerComponent('png-sequence', {
-      schema: {
-        prefix: { type: 'string' },
-        count:  { type: 'int',    default: 20 },
-        fps:    { type: 'number', default: 12 }
-      },
       init() {
         this.frame   = 0;
         this.elapsed = 0;
