@@ -1,29 +1,39 @@
 document.addEventListener('DOMContentLoaded', () => {
   const sceneEl = document.querySelector('a-scene');
 
-  sceneEl.addEventListener('renderstart', () => {
-    // À CE MOMENT LÀ, A-Frame a monté tous les components
-    const pngEl = document.querySelector('#png-on-target');
-    if (!pngEl) {
-      console.error('❌ #png-on-target introuvable');
-      return;
-    }
-    const pngSeq = pngEl.components['png-sequence'];
-    if (!pngSeq) {
-      console.error('❌ png-sequence non attaché à #png-on-target');
-      return;
-    }
+  // Prépare un tableau pour retrouver vite le PNG et son component
+  const sequences = [
+    { el: document.querySelector('#png-0'), comp: null },
+    { el: document.querySelector('#png-1'), comp: null },
+    // { el: document.querySelector('#png-2'), comp: null }, etc.
+  ];
 
-    // Maintenant que tout est prêt, on branche targetFound / Lost
-    sceneEl.addEventListener('targetFound', () => {
-      console.log('🎯 Cible détectée !');
-      pngEl.setAttribute('visible', 'true');
-      pngSeq.start();
+  sceneEl.addEventListener('renderstart', () => {
+    // Récupère ici les components, après que la scène soit prête
+    sequences.forEach(seq => {
+      if (seq.el) {
+        seq.comp = seq.el.components['png-sequence'];
+      }
     });
-    sceneEl.addEventListener('targetLost', () => {
-      console.log('🚫 Cible perdue !');
-      pngSeq.stop();
-      pngEl.setAttribute('visible', 'false');
-    });
+  });
+
+  sceneEl.addEventListener('targetFound', (e) => {
+    const idx = e.detail.targetIndex;
+    console.log(`🎯 Target ${idx} détectée`);
+    const seq = sequences[idx];
+    if (seq && seq.el && seq.comp) {
+      seq.el.setAttribute('visible', 'true');
+      seq.comp.start();
+    }
+  });
+
+  sceneEl.addEventListener('targetLost', (e) => {
+    const idx = e.detail.targetIndex;
+    console.log(`🚫 Target ${idx} perdue`);
+    const seq = sequences[idx];
+    if (seq && seq.el && seq.comp) {
+      seq.comp.stop();
+      seq.el.setAttribute('visible', 'false');
+    }
   });
 });

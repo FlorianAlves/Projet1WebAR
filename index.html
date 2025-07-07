@@ -1,15 +1,15 @@
 ﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8"/>
-  <title>WebAR – PNG animé</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <meta charset="utf-8" />
+  <title>WebAR – Multi-cibles PNG animé</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
 
-  <!-- 1) A-Frame & MindAR -->
+  <!-- A-Frame & MindAR -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-  <!-- 2) Component png-sequence déclaré AVANT la scène -->
+  <!-- Component png-sequence (chargé avant la scène) -->
   <script>
     AFRAME.registerComponent('png-sequence', {
       schema: {
@@ -18,7 +18,6 @@
         fps:    { type: 'number', default: 12 }
       },
       init() {
-        console.log('🔧 png-sequence initialisé, count =', this.data.count);
         this.frame   = 0;
         this.elapsed = 0;
         this.duration = 1000 / this.data.fps;
@@ -41,10 +40,10 @@
     });
   </script>
 
-  <!-- 3) Ton script JS (défer) -->
+  <!-- Ton script principal -->
   <script defer src="app.js"></script>
 
-  <!-- 4) CSS plein écran + disposition des calques -->
+  <!-- CSS plein écran et calques -->
   <style>
     html, body, a-scene, canvas {
       margin:0; padding:0;
@@ -53,20 +52,12 @@
       position:fixed; top:0; left:0;
     }
     video {
-      position:fixed!important;
-      top:0!important; left:0!important;
+      position:fixed!important; top:0!important; left:0!important;
       width:100vw!important; height:100vh!important;
-      object-fit:cover!important;
-      z-index:0!important;
+      object-fit:cover!important; z-index:0!important;
     }
-    a-scene, canvas {
-      z-index:1!important;
-      background:transparent!important;
-    }
-    .mindar-ui-overlay, .mindar-ui-loader {
-      z-index:2!important;
-      background:transparent!important;
-    }
+    a-scene, canvas { z-index:1!important; background:transparent!important; }
+    .mindar-ui-overlay, .mindar-ui-loader { z-index:2!important; background:transparent!important; }
   </style>
 </head>
 <body>
@@ -79,16 +70,27 @@
   >
     <a-camera look-controls="enabled: false"></a-camera>
 
-    <!-- Cible index 0 qui jouera la séquence PNG -->
+    <!-- Cible 0 -->
     <a-entity mindar-image-target="targetIndex: 0">
       <a-image
-        id="png-on-target"
-        src="./animations/target0/frame_000.png"
+        id="png-0"
         png-sequence="prefix: ./animations/target0/frame_; count: 20; fps: 12"
         width="1" height="1"
         visible="false">
       </a-image>
     </a-entity>
+
+    <!-- Cible 1 -->
+    <a-entity mindar-image-target="targetIndex: 1">
+      <a-image
+        id="png-1"
+        png-sequence="prefix: ./animations/target1/frame_; count: 16; fps: 10"
+        width="1" height="1"
+        visible="false">
+      </a-image>
+    </a-entity>
+
+    <!-- Ajoute d'autres cibles de la même façon -->
   </a-scene>
 </body>
 </html>
