@@ -10,21 +10,31 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
   <!-- Plein écran caméra -->
-  <style>
+<style>
+  /* 1) Page et body transparents pour laisser passer la vidéo */
   html, body {
     margin: 0;
     padding: 0;
     overflow: hidden;
     width: 100vw;
     height: 100vh;
-    background: #000; /* tu peux garder du noir « en dessous » du video feed */
+    background: transparent !important;
   }
 
-  /* scène A-Frame et canvas */
+  /* 2) Vidéo caméra pleine page, sous le canvas A-Frame */
+  video {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    object-fit: cover !important;
+    z-index: 0 !important;
+  }
+
+  /* 3) Scene et canvas WebGL au-dessus de la vidéo */
   a-scene,
-  canvas,
-  .mindar-ui-overlay,
-  .mindar-ui-loader {
+  canvas {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -33,10 +43,21 @@
     margin: 0 !important;
     padding: 0 !important;
     background: transparent !important;
-    z-index: 0 !important;
+    z-index: 1 !important;
+  }
+
+  /* 4) UI MindAR au-dessus de tout */
+  .mindar-ui-overlay,
+  .mindar-ui-loader {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: transparent !important;
+    z-index: 2 !important;
   }
 </style>
-
 
   <!-- Votre logique -->
   <script defer src="app.js"></script>

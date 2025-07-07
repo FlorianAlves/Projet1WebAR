@@ -47,19 +47,35 @@ AFRAME.registerComponent('png-sequence', {
 /* ============================================================================
  *  Gestion de la détection MindAR
  * --------------------------------------------------------------------------*/
-document.addEventListener('DOMContentLoaded', () => {
-  const scene = document.querySelector('a-scene');
-  const seq   = document.querySelector('#anim-seq').components['png-sequence'];
+document.addEventListener("DOMContentLoaded", () => {
+  const sceneEl = document.querySelector("a-scene");
 
-  scene.addEventListener('targetFound', () => {
-    console.log('🎯 Cible détectée');
-    seq.el.setAttribute('visible', true);
-    seq.start();
+  sceneEl.addEventListener("arReady", () => console.log("✅ MindAR prêt"));
+  sceneEl.addEventListener("renderstart", () => {
+    console.log("▶️ A-Frame rendu démarré");
+
+    // Style vidéo au cas où le CSS natif ne s'applique pas
+    const vid = document.querySelector("video");
+    if (vid) {
+      Object.assign(vid.style, {
+        position: "fixed",
+        top: "0",
+        left: "0",
+        width: "100vw",
+        height: "100vh",
+        objectFit: "cover",
+        zIndex: "0",
+      });
+    }
   });
 
-  scene.addEventListener('targetLost', () => {
-    console.log('🚫 Cible perdue');
-    seq.stop();
-    seq.el.setAttribute('visible', false);
+  sceneEl.addEventListener("targetFound", () => {
+    console.log("🎯 Cible détectée !");
+    document.querySelector("#png-on-target").setAttribute("visible", true);
+  });
+
+  sceneEl.addEventListener("targetLost", () => {
+    console.log("❌ Cible perdue !");
+    document.querySelector("#png-on-target").setAttribute("visible", false);
   });
 });
