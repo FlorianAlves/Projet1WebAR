@@ -9,10 +9,10 @@
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-  <!-- Animation mixer (nécessaire pour jouer les animations GLB/GLTF) -->
+  <!-- Animation mixer (jouer les animations GLB/GLTF) -->
   <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
 
-  <!-- Votre logique (contient png-sequence + ar-target-loader) -->
+  <!-- Votre logique -->
   <script defer src="app.js"></script>
 
   <!-- Plein écran + transparence -->
@@ -62,12 +62,7 @@
     </a-entity>
     -->
 
-    <!--
-      Pour ajouter d'autres cibles :
-      <a-entity mindar-image-target="targetIndex: 2"
-                ar-target-loader="pngPrefix: ./animations/target2/frame_; fps: 12; unitWidth: 1; fit: width; modelsDir: ./models/target2/">
-      </a-entity>
-    -->
+    <!-- Pour ajouter d'autres cibles, duplique un bloc ci-dessus en changeant targetIndex et chemins -->
   </a-scene>
 </body>
 </html>

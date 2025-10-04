@@ -5,6 +5,9 @@ const log = (m, ...r) => console.log(`[ar] ${m}`, ...r);
 
 /********************************************
  * Composant : png-sequence (auto-count)
+ * - détecte automatiquement frame_000.png → …
+ * - calcule le ratio réel et dimensionne l’<a-image>
+ * - évite le "flash" blanc (affiche la 1ère frame immédiatement)
  ********************************************/
 if (!AFRAME.components['png-sequence']) {
   AFRAME.registerComponent('png-sequence', {
@@ -13,7 +16,7 @@ if (!AFRAME.components['png-sequence']) {
       fps:       { type: 'number', default: 12 },
       pad:       { type: 'int',    default: 3 },   // 000-999
       start:     { type: 'int',    default: 0 },
-      max:       { type: 'int',    default: 300 },
+      max:       { type: 'int',    default: 300 }, // garde-fou
       unitWidth: { type: 'number', default: 1 },
       fit:       { type: 'string', default: 'width' } // 'width' | 'height'
     },
@@ -29,9 +32,9 @@ if (!AFRAME.components['png-sequence']) {
 
       await new Promise(res => (this.el.hasLoaded ? res() : this.el.addEventListener('loaded', res, { once: true })));
 
-      // Découverte des frames par essai
       const pad = n => n.toString().padStart(this.data.pad, '0');
       let i = this.data.start;
+
       while (i < this.data.max) {
         const url = `${this.data.prefix}${pad(i)}.png`;
         const ok = await new Promise(resolve => {
@@ -42,12 +45,13 @@ if (!AFRAME.components['png-sequence']) {
         });
         if (ok) {
           if (this.frames.length === 0) {
-            // Charger la première pour ratio
+            // Charge la 1ère pour récupérer le ratio
             const im = new Image();
-            await new Promise((resolve) => { im.onload = resolve; im.src = url; });
+            await new Promise(resolve => { im.onload = resolve; im.src = url; });
             const iw = im.naturalWidth  || im.width  || 1;
             const ih = im.naturalHeight || im.height || 1;
             const ratio = ih / iw;
+
             if (this.data.fit === 'width') {
               const w = this.data.unitWidth, h = w * ratio;
               this.el.setAttribute('width', w);
@@ -111,6 +115,10 @@ if (!AFRAME.components['png-sequence']) {
 
 /******************************************************
  * Composant : ar-target-loader (PNG + 3D par dossiers)
+ * - pngPrefix : active la séquence PNG auto
+ * - modelsDir : cherche un modèle 3D (model.glb/scene.glb/index.glb ou .gltf)
+ *               ou model_000.glb(gltf) comme séquence simple
+ * - joue / pause les animations GLB via animation-mixer
  ******************************************************/
 if (!AFRAME.components['ar-target-loader']) {
   AFRAME.registerComponent('ar-target-loader', {
@@ -127,8 +135,7 @@ if (!AFRAME.components['ar-target-loader']) {
       // Options scan 3D
       modelPad:    { type: 'int',     default: 3 },    // model_000.glb
       modelStart:  { type: 'int',     default: 0 },
-      modelMax:    { type: 'int',     default: 30 },   // limite raisonnable
-      // Noms “classiques” essayés en premier
+      modelMax:    { type: 'int',     default: 30 },
       preferNames: { type: 'string',  default: 'model.glb,scene.glb,index.glb,model.gltf,scene.gltf,index.gltf' },
 
       // Placement 3D par défaut
@@ -155,7 +162,7 @@ if (!AFRAME.components['ar-target-loader']) {
         this.assets.png = img;
       }
 
-      // 2) 3D : ESSAIS SANS HEAD — on crée les entités directement.
+      // 2) 3D : ESSAIS SANS HEAD — on crée des entités, celles qui 404 n’empêchent pas le reste
       if (this.data.modelsDir) {
         const dir = this.data.modelsDir.endsWith('/') ? this.data.modelsDir : this.data.modelsDir + '/';
 
@@ -170,35 +177,65 @@ if (!AFRAME.components['ar-target-loader']) {
           ent.setAttribute('position', this.data.modelPos);
           ent.setAttribute('rotation', this.data.modelRot);
           ent.setAttribute('scale',    this.data.modelScale);
-          ent.setAttribute('animation-mixer', `clip: ${this.data.animClip}; loop: ${this.data.animLoop}; timeScale: 0`);
+          ent.setAttribute('animation-mixer', `clip: *; loop: ${this.data.animLoop}; timeScale: 0`);
+
+          // Attendre le chargement du modèle pour (re)fixer le mixer et jouer si cible déjà visible
+          ent.addEventListener('model-loaded', () => {
+            const mesh = ent.getObject3D('mesh');
+            const clips = (mesh && mesh.animations) ? mesh.animations : [];
+            if (!clips.length) {
+              console.warn('[3D] Aucun clip d’animation trouvé dans', url);
+            } else {
+              ent.setAttribute('animation-mixer', `clip: *; loop: ${this.data.animLoop}; timeScale: 0`);
+              console.log('[3D] Clips dispos:', clips.map(c => c.name));
+              if (root.getAttribute('visible')) {
+                const am = ent.components['animation-mixer'];
+                if (am) am.data.timeScale = 1; // play si visible
+              }
+            }
+          });
+          ent.addEventListener('model-error', (err) => console.error('[3D] model-error pour', url, err));
+
           root.appendChild(ent);
           this.assets.models.push(ent);
           created = true;
-          // on s’arrête au premier réussi (si les autres 404, ça n’empêche rien)
-          break;
+          break; // on s’arrête au premier trouvé
         }
 
-        // b) Séquence model_000.glb → model_0xx.glb si rien en “classique”
+        // b) Séquence model_000 → model_0xx si rien trouvé en “classique”
         if (!created) {
           const pad = n => n.toString().padStart(this.data.modelPad, '0');
           let any = false;
           for (let i = this.data.modelStart; i < this.data.modelMax; i++) {
-            const glb = dir + `model_${pad(i)}.glb`;
-            const gltf = dir + `model_${pad(i)}.gltf`;
-            // on crée l'entité pour glb puis gltf (l’un des deux peut exister)
-            [glb, gltf].forEach(url => {
+            const tryUrls = [dir + `model_${pad(i)}.glb`, dir + `model_${pad(i)}.gltf`];
+            tryUrls.forEach(url => {
               const ent = document.createElement('a-entity');
               ent.setAttribute('visible', 'false');
               ent.setAttribute('gltf-model', `url(${url})`);
               ent.setAttribute('position', this.data.modelPos);
               ent.setAttribute('rotation', this.data.modelRot);
               ent.setAttribute('scale',    this.data.modelScale);
-              ent.setAttribute('animation-mixer', `clip: ${this.data.animClip}; loop: ${this.data.animLoop}; timeScale: 0`);
+              ent.setAttribute('animation-mixer', `clip: *; loop: ${this.data.animLoop}; timeScale: 0`);
+              ent.addEventListener('model-loaded', () => {
+                const mesh = ent.getObject3D('mesh');
+                const clips = (mesh && mesh.animations) ? mesh.animations : [];
+                if (!clips.length) {
+                  console.warn('[3D] Aucun clip d’animation trouvé dans', url);
+                } else {
+                  ent.setAttribute('animation-mixer', `clip: *; loop: ${this.data.animLoop}; timeScale: 0`);
+                  console.log('[3D] Clips dispos:', clips.map(c => c.name));
+                  if (root.getAttribute('visible')) {
+                    const am = ent.components['animation-mixer'];
+                    if (am) am.data.timeScale = 1;
+                  }
+                }
+              });
+              ent.addEventListener('model-error', (err) => console.error('[3D] model-error pour', url, err));
               root.appendChild(ent);
               this.assets.models.push(ent);
               any = true;
             });
-            if (any) break; // on arrête à la 1ère index valide potentielle
+            if (any) break;
           }
         }
       }
@@ -213,7 +250,7 @@ if (!AFRAME.components['ar-target-loader']) {
         this.assets.models.forEach(ent => {
           ent.setAttribute('visible', 'true');
           const am = ent.components['animation-mixer'];
-          if (am) am.data.timeScale = 1;  // play
+          if (am) am.data.timeScale = 1;  // PLAY
         });
       });
 
@@ -225,7 +262,7 @@ if (!AFRAME.components['ar-target-loader']) {
         }
         this.assets.models.forEach(ent => {
           const am = ent.components['animation-mixer'];
-          if (am) am.data.timeScale = 0;  // pause
+          if (am) am.data.timeScale = 0;  // PAUSE
           ent.setAttribute('visible', 'false');
         });
       });
