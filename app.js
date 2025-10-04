@@ -3,8 +3,16 @@
  ************/
 const log = (m, ...r) => console.log(`[ar] ${m}`, ...r);
 
+const waitEvent = (el, name, {once=true, timeoutMs=15000}={}) =>
+  new Promise((res, rej) => {
+    let to;
+    const on = () => { if (to) clearTimeout(to); el.removeEventListener(name, on); res(); };
+    el.addEventListener(name, on, {once});
+    if (timeoutMs) to = setTimeout(() => { el.removeEventListener(name, on); rej(new Error(`timeout:${name}`)); }, timeoutMs);
+  });
+
 /********************************************
- * Composant : png-sequence (auto-count)
+ * Composant : png-sequence (auto-count) + ready event
  ********************************************/
 if (!AFRAME.components['png-sequence']) {
   AFRAME.registerComponent('png-sequence', {
@@ -70,6 +78,7 @@ if (!AFRAME.components['png-sequence']) {
 
       if (!this.frames.length) {
         log('[png] aucune image trouvée pour', this.data.prefix);
+        this.el.emit('png-sequence-ready', {ok:false});
         return;
       }
 
@@ -77,6 +86,7 @@ if (!AFRAME.components['png-sequence']) {
       this.frames.forEach(u => { const im = new Image(); im.src = u; });
 
       this.ready = true;
+      this.el.emit('png-sequence-ready', {ok:true, count:this.frames.length}); // <<< READY
       if (this.deferStart) this._reallyStart();
     },
 
@@ -109,22 +119,18 @@ if (!AFRAME.components['png-sequence']) {
 }
 
 /******************************************************
- * Composant : ar-target-loader (PNG + 3D + AUDIO)
- * - pngPrefix : séquence PNG auto
- * - modelsDir : 3D auto (model.glb/scene.glb/index.glb ou model_000.glb)
- * - audioPrefix : audio auto (audio_000.mp3/ogg/wav … ou audio.mp3)
- *   * playlist simple avec loop optionnel
+ * Composant : ar-target-loader (PNG + 3D + AUDIO) avec gating “tout prêt”
  ******************************************************/
 if (!AFRAME.components['ar-target-loader']) {
   AFRAME.registerComponent('ar-target-loader', {
     schema: {
-      // Séquence PNG (facultatif)
+      // PNG
       pngPrefix:   { type: 'string', default: '' },
       fps:         { type: 'number', default: 12 },
       unitWidth:   { type: 'number', default: 1 },
       fit:         { type: 'string',  default: 'width' },
 
-      // Dossier modèles 3D (facultatif)
+      // 3D
       modelsDir:   { type: 'string',  default: '' },
       modelPad:    { type: 'int',     default: 3 },
       modelStart:  { type: 'int',     default: 0 },
@@ -136,25 +142,23 @@ if (!AFRAME.components['ar-target-loader']) {
       animClip:    { type: 'string',  default: '*' },
       animLoop:    { type: 'string',  default: 'repeat' },
 
-      // AUDIO (facultatif) — même logique "prefix auto" que PNG
-      audioPrefix: { type: 'string',  default: '' },     // ex: ./audio/target0/audio_
-      audioPad:    { type: 'int',     default: 3 },      // 000…
+      // AUDIO
+      audioPrefix: { type: 'string',  default: '' },     // ./audio/targetX/audio_  ou ./audio/targetX/audio
+      audioPad:    { type: 'int',     default: 3 },
       audioStart:  { type: 'int',     default: 0 },
       audioMax:    { type: 'int',     default: 50 },
       audioLoop:   { type: 'string',  default: 'all' },  // 'none' | 'all'
       audioVolume: { type: 'number',  default: 1 },
-      audioPos:    { type: 'string',  default: '0 0 0' },// optionnel si tu veux du positionnel
-      audioNonPos: { type: 'boolean', default: true }    // true = non-positionnel (plus fiable)
+      audioPos:    { type: 'string',  default: '0 0 0' },
+      audioNonPos: { type: 'boolean', default: true }    // true = non-positionnel
     },
 
     async init() {
       const root = this.el;
-      this.assets = { png: null, models: [], audio: null, tracks: [], trackIndex: 0, unlocked: false };
+      this.assets = { png: null, models: [], audio: null, tracks: [], trackIndex: 0 };
 
-      // Déverrouillage audio (politiques autoplay iOS/Android)
-      const unlock = () => { this.assets.unlocked = true; window.removeEventListener('touchstart', unlock); window.removeEventListener('click', unlock); };
-      window.addEventListener('touchstart', unlock, { passive: true, once: true });
-      window.addEventListener('click', unlock, { passive: true, once: true });
+      // ————— Préparer promises de readiness —————
+      const readyPromises = [];
 
       // 1) PNG
       if (this.data.pngPrefix) {
@@ -164,145 +168,131 @@ if (!AFRAME.components['ar-target-loader']) {
           `prefix: ${this.data.pngPrefix}; fps: ${this.data.fps}; unitWidth: ${this.data.unitWidth}; fit: ${this.data.fit}`);
         root.appendChild(img);
         this.assets.png = img;
+        // attendre l’événement “png-sequence-ready”
+        readyPromises.push(waitEvent(img, 'png-sequence-ready').catch(() => {}));
       }
 
       // 2) 3D
+      const modelReadyPromises = [];
       if (this.data.modelsDir) {
         const dir = this.data.modelsDir.endsWith('/') ? this.data.modelsDir : this.data.modelsDir + '/';
         const preferred = this.data.preferNames.split(',').map(s => s.trim()).filter(Boolean);
-
         let created = false;
+
         for (const name of preferred) {
           const url = dir + name;
           const ent = this._createModelEntity(url);
           root.appendChild(ent);
           this.assets.models.push(ent);
-          created = true;
-          break;
+          modelReadyPromises.push(waitEvent(ent, 'model-loaded').catch(()=>{}));
+          created = true; break;
         }
-
         if (!created) {
           const pad = n => n.toString().padStart(this.data.modelPad, '0');
           let any = false;
           for (let i = this.data.modelStart; i < this.data.modelMax; i++) {
-            [dir + `model_${pad(i)}.glb`, dir + `model_${pad(i)}.gltf`].forEach(url => {
+            const urls = [dir + `model_${pad(i)}.glb`, dir + `model_${pad(i)}.gltf`];
+            urls.forEach(url => {
               const ent = this._createModelEntity(url);
               root.appendChild(ent);
               this.assets.models.push(ent);
+              modelReadyPromises.push(waitEvent(ent, 'model-loaded').catch(()=>{}));
               any = true;
             });
             if (any) break;
           }
         }
       }
+      // même si aucun modèle, on met une promesse résolue pour simplifier
+      readyPromises.push(Promise.all(modelReadyPromises).catch(()=>{}));
 
-      // 3) AUDIO — auto-détection par prefix
+      // 3) AUDIO — précharger & préparer
       if (this.data.audioPrefix) {
         const audioEnt = document.createElement('a-entity');
         audioEnt.setAttribute('visible', 'false');
-
-        // on prépare le sound component (src sera défini dynamiquement)
         const soundBase = [
           `autoplay: false`,
           `loop: false`,
           `volume: ${this.data.audioVolume}`,
-          `positional: ${!this.data.audioNonPos}`, // si non-positionnel, positional:false
+          `positional: ${!this.data.audioNonPos}`,
         ].join('; ');
         audioEnt.setAttribute('sound', soundBase);
         audioEnt.setAttribute('position', this.data.audioPos);
+        root.appendChild(audioEnt);
+        this.assets.audio = audioEnt;
 
-        // Découverte des pistes : d’abord noms classiques, puis sequence audio_000.ext
-        const exts = ['mp3','ogg','wav'];
-        const classic = exts.map(ext => `${this.data.audioPrefix.replace(/[_-]?$/, '')}.${ext}`); // ex: ./audio/target0/audio.mp3
-        const tracks = [];
-
-        // Tester noms classiques
-        for (const url of classic) {
-          const ok = await headExists(url);
-          if (ok) { tracks.push(url); break; }
-        }
-        // Tester séquence si rien trouvé
-        if (tracks.length === 0) {
-          const pad = n => n.toString().padStart(this.data.audioPad, '0');
-          for (let i = this.data.audioStart; i < this.data.audioMax; i++) {
-            let foundForThisIndex = false;
-            for (const ext of exts) {
-              const url = `${this.data.audioPrefix}${pad(i)}.${ext}`;
-              // eslint-disable-next-line no-await-in-loop
-              const ok = await headExists(url);
-              if (ok) { tracks.push(url); foundForThisIndex = true; break; }
-            }
-            if (!foundForThisIndex) {
-              if (tracks.length > 0) break; // on stoppe à la 1ère “coupure”
-            }
-          }
-        }
-
-        if (tracks.length) {
-          root.appendChild(audioEnt);
-          this.assets.audio = audioEnt;
-          this.assets.tracks = tracks;
-          this.assets.trackIndex = 0;
-
-          // Gestion de fin de piste → piste suivante / boucle
-          audioEnt.addEventListener('sound-ended', () => {
-            if (!this.assets.tracks.length) return;
-            if (this.data.audioLoop === 'all') {
-              this.assets.trackIndex = (this.assets.trackIndex + 1) % this.assets.tracks.length;
-              this._playCurrentTrack();
-            }
-          });
-        } else {
-          log('[audio] aucune piste trouvée pour', this.data.audioPrefix);
-        }
+        readyPromises.push(this._discoverAndPreloadAudio().catch(()=>{}));
       }
 
-      // 4) targetFound / targetLost
+      // 4) Quand TOUT est prêt → lever un flag
+      this._allReady = false;
+      Promise.all(readyPromises).then(() => {
+        this._allReady = true;
+        log('✅ All assets ready for target');
+        if (this._wantStartOnReady) this._startAll(); // si la cible est déjà détectée, on démarre maintenant
+      });
+
+      // 5) targetFound / targetLost
       root.addEventListener('targetFound', () => {
-        // PNG
-        if (this.assets.png) {
-          this.assets.png.setAttribute('visible', 'true');
-          const comp = this.assets.png.components['png-sequence'];
-          if (comp) comp.start();
-        }
-
-        // 3D
-        this.assets.models.forEach(ent => {
-          ent.setAttribute('visible', 'true');
-          ent.setAttribute('animation-mixer', 'timeScale: 1'); // PLAY
-        });
-
-        // AUDIO
-        if (this.assets.audio && this.assets.tracks.length) {
-          this.assets.audio.setAttribute('visible', 'true');
-          // sur mobile, il faut souvent un geste utilisateur préalable
-          if (this.assets.unlocked) this._playCurrentTrack();
-          else log('[audio] en attente d’un tap/click pour commencer (autoplay policy)');
-        }
+        this._isVisible = true;
+        if (this._allReady) this._startAll();
+        else this._wantStartOnReady = true;
       });
 
       root.addEventListener('targetLost', () => {
-        // PNG
-        if (this.assets.png) {
-          const comp = this.assets.png.components['png-sequence'];
-          if (comp) comp.stop();
-          this.assets.png.setAttribute('visible', 'false');
-        }
-
-        // 3D
-        this.assets.models.forEach(ent => {
-          ent.setAttribute('animation-mixer', 'timeScale: 0'); // PAUSE
-          ent.setAttribute('visible', 'false');
-        });
-
-        // AUDIO
-        if (this.assets.audio) {
-          this._stopAudio();
-          this.assets.audio.setAttribute('visible', 'false');
-        }
+        this._isVisible = false;
+        this._wantStartOnReady = false;
+        this._stopAll();
       });
+
+      // Tentatives d’autoplay “sans tap” : au démarrage rendu / arReady
+      const scene = root.sceneEl;
+      const tryResume = () => {
+        try {
+          const ctx = this._getAudioContext();
+          if (ctx && ctx.state === 'suspended') ctx.resume().catch(()=>{});
+        } catch {}
+      };
+      scene.addEventListener('renderstart', tryResume, {once:true});
+      scene.addEventListener('arReady', tryResume, {once:true});
     },
 
+    _startAll() {
+      // PNG
+      if (this.assets.png) {
+        this.assets.png.setAttribute('visible', 'true');
+        const comp = this.assets.png.components['png-sequence'];
+        if (comp) comp.start();
+      }
+      // 3D
+      this.assets.models.forEach(ent => {
+        ent.setAttribute('visible', 'true');
+        ent.setAttribute('animation-mixer', 'timeScale: 1');  // PLAY
+      });
+      // AUDIO
+      if (this.assets.audio && this._audioTracks?.length) {
+        this.assets.audio.setAttribute('visible', 'true');
+        this._playCurrentTrack(); // tente l’autoplay
+      }
+    },
+
+    _stopAll() {
+      if (this.assets.png) {
+        const comp = this.assets.png.components['png-sequence'];
+        if (comp) comp.stop();
+        this.assets.png.setAttribute('visible', 'false');
+      }
+      this.assets.models.forEach(ent => {
+        ent.setAttribute('animation-mixer', 'timeScale: 0');  // PAUSE
+        ent.setAttribute('visible', 'false');
+      });
+      if (this.assets.audio) {
+        this._stopAudio();
+        this.assets.audio.setAttribute('visible', 'false');
+      }
+    },
+
+    // ————— Modèles 3D —————
     _createModelEntity(url) {
       const ent = document.createElement('a-entity');
       ent.setAttribute('visible', 'false');
@@ -319,10 +309,8 @@ if (!AFRAME.components['ar-target-loader']) {
           console.warn('[3D] Aucun clip d’animation trouvé dans', url);
           return;
         }
-        // (re)poser le mixer après le load
         ent.setAttribute('animation-mixer', `clip: ${this.data.animClip}; loop: ${this.data.animLoop}; timeScale: 0`);
-        console.log('[3D] Clips dispos:', clips.map(c => c.name));
-        if (this.el.getAttribute('visible')) {
+        if (this._isVisible && this._allReady) {
           ent.setAttribute('animation-mixer', 'timeScale: 1');  // PLAY si déjà visible
         }
       });
@@ -332,31 +320,103 @@ if (!AFRAME.components['ar-target-loader']) {
       return ent;
     },
 
-    _playCurrentTrack() {
-      if (!this.assets.audio || !this.assets.tracks.length) return;
-      const url = this.assets.tracks[this.assets.trackIndex];
-      // Appliquer la source et jouer
-      this.assets.audio.setAttribute('sound', `src: url(${url}); autoplay: false; loop: false; volume: ${this.data.audioVolume}; positional: ${!this.data.audioNonPos}`);
-      const snd = this.assets.audio.components.sound;
-      if (snd) {
-        try {
-          snd.stopSound();
-        } catch {}
-        // Sur certains navigateurs, il faut un setTimeout court pour que la source se (re)prenne
-        setTimeout(() => {
-          snd.playSound();
-          log('[audio] PLAY →', url);
-        }, 0);
+    // ————— Audio : détection + préchargement + lecture —————
+    async _discoverAndPreloadAudio() {
+      const exts = ['mp3','ogg','wav'];
+      const tracks = [];
+
+      // 1) Nom “classique” (audio.ext) si le prefix ne finit pas par _ ou -
+      const base = this.data.audioPrefix.replace(/[_-]$/, '');
+      for (const ext of exts) {
+        const url = `${base}.${ext}`;
+        const ok = await headExists(url);
+        if (ok) { tracks.push(url); break; }
       }
+
+      // 2) Séquence audio_000.ext…
+      if (!tracks.length) {
+        const pad = n => n.toString().padStart(this.data.audioPad, '0');
+        for (let i = this.data.audioStart; i < this.data.audioMax; i++) {
+          let foundThis = false;
+          for (const ext of exts) {
+            const url = `${this.data.audioPrefix}${pad(i)}.${ext}`;
+            // eslint-disable-next-line no-await-in-loop
+            const ok = await headExists(url);
+            if (ok) { tracks.push(url); foundThis = true; break; }
+          }
+          if (!foundThis) {
+            if (tracks.length > 0) break;
+          }
+        }
+      }
+
+      this._audioTracks = tracks;
+      if (!tracks.length) {
+        log('[audio] aucune piste trouvée pour', this.data.audioPrefix);
+        return;
+      }
+
+      // Précharge via éléments <audio> (canplaythrough)
+      await Promise.all(tracks.map(url => new Promise(resolve => {
+        const a = new Audio();
+        a.preload = 'auto';
+        a.src = url;
+        const done = () => { cleanup(); resolve(); };
+        const cleanup = () => { a.removeEventListener('canplaythrough', done); a.removeEventListener('error', done); };
+        a.addEventListener('canplaythrough', done, {once:true});
+        a.addEventListener('error', done, {once:true});
+        // kick
+        a.load();
+      })));
+      log('🔊 Audio preloaded:', tracks);
     },
 
-    _stopAudio() {
-      if (!this.assets.audio) return;
+    _getAudioContext() {
+      const scene = this.el.sceneEl;
+      if (!scene.audioListener) {
+        // A-Frame crée audioListener à la 1ère utilisation du composant sound
+        const audioEnt = this.assets.audio;
+        if (audioEnt) audioEnt.components.sound?.playSound?.(); // force init
+        audioEnt?.components.sound?.stopSound?.();
+      }
+      return (this.el.sceneEl.audioListener && this.el.sceneEl.audioListener.context) || null;
+    },
+
+    _playCurrentTrack() {
+      if (!this.assets.audio || !this._audioTracks?.length) return;
+      const ctx = this._getAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        // tentative d’autoplay sans geste ; si bloqué, le navigateur ignorera
+        ctx.resume().catch(()=>{});
+      }
+
+      const url = this._audioTracks[this._trackIndex || 0];
+      this.assets.audio.setAttribute('sound',
+        `src: url(${url}); autoplay: false; loop: false; volume: ${this.data.audioVolume}; positional: ${!this.data.audioNonPos}`
+      );
       const snd = this.assets.audio.components.sound;
       if (snd) {
         try { snd.stopSound(); } catch {}
+        setTimeout(() => {
+          try { snd.playSound(); log('[audio] PLAY →', url); } catch (e) { log('[audio] autoplay blocked'); }
+        }, 0);
       }
-      this.assets.trackIndex = 0; // on repart du début à la prochaine détection
+
+      // Fin de piste → suivante / loop-all
+      const onEnded = () => {
+        if (this.data.audioLoop === 'all' && this._audioTracks.length > 1) {
+          this._trackIndex = ((this._trackIndex || 0) + 1) % this._audioTracks.length;
+          this._playCurrentTrack();
+        }
+        this.assets.audio.removeEventListener('sound-ended', onEnded);
+      };
+      this.assets.audio.addEventListener('sound-ended', onEnded);
+    },
+
+    _stopAudio() {
+      const snd = this.assets.audio?.components.sound;
+      if (snd) { try { snd.stopSound(); } catch {} }
+      this._trackIndex = 0;
     }
   });
 }
@@ -366,7 +426,5 @@ async function headExists(url) {
   try {
     const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
     return res.ok;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
