@@ -1,32 +1,35 @@
 ﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <title>WebAR – Multi-cibles PNG animé</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <meta charset="utf-8"/>
+  <title>WebAR — PNG + 3D</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
 
   <!-- A-Frame & MindAR -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
 
-  <!-- Ton script principal -->
+  <!-- Animation mixer (nécessaire pour jouer les animations GLB/GLTF) -->
+  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+
+  <!-- Votre logique (contient png-sequence + ar-target-loader) -->
   <script defer src="app.js"></script>
 
-  <!-- CSS plein écran et calques -->
+  <!-- Plein écran + transparence -->
   <style>
     html, body, a-scene, canvas {
-      margin:0; padding:0;
-      width:100vw; height:100vh;
-      overflow:hidden; background:transparent;
-      position:fixed; top:0; left:0;
+      margin: 0; padding: 0;
+      width: 100vw; height: 100vh;
+      overflow: hidden; background: transparent;
+      position: fixed; top: 0; left: 0;
     }
     video {
-      position:fixed!important; top:0!important; left:0!important;
-      width:100vw!important; height:100vh!important;
-      object-fit:cover!important; z-index:0!important;
+      position: fixed !important; top: 0 !important; left: 0 !important;
+      width: 100vw !important; height: 100vh !important;
+      object-fit: cover !important; z-index: 0 !important;
     }
-    a-scene, canvas { z-index:1!important; background:transparent!important; }
-    .mindar-ui-overlay, .mindar-ui-loader { z-index:2!important; background:transparent!important; }
+    a-scene, canvas { z-index: 1 !important; background: transparent !important; }
+    .mindar-ui-overlay, .mindar-ui-loader { z-index: 2 !important; background: transparent !important; }
   </style>
 </head>
 <body>
@@ -37,35 +40,26 @@
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: true"
   >
-    <a-camera look-controls="enabled: false"></a-camera>
+    <a-camera look-controls="enabled:false"></a-camera>
 
-    <!-- Target 0 : PNG + 3D -->
-<a-entity
-  mindar-image-target="targetIndex: 0"
-  ar-target-loader="
-    pngPrefix: ./animations/target0/frame_;
-    fps: 12;
-    unitWidth: 1;
-    fit: width;
-    modelsDir: ./models/target0/;
-    modelScale: 0.5 0.5 0.5;   <!-- ajuste si besoin -->
-  ">
-</a-entity>
+    <!-- TARGET 0 : séquence PNG + (option) 3D -->
+    <a-entity
+      mindar-image-target="targetIndex: 0"
+      ar-target-loader="pngPrefix: ./animations/target0/frame_; fps: 12; unitWidth: 1; fit: width; modelsDir: ./models/target0/">
+    </a-entity>
 
-    <!-- Target 1 : PNG + 3D -->
-<a-entity
-  mindar-image-target="targetIndex: 1"
-  ar-target-loader="
-    pngPrefix: ./animations/target1/frame_;
-    fps: 12;
-    unitWidth: 1;
-    fit: width;
-    modelsDir: ./models/target1/;
-    modelScale: 0.5 0.5 0.5;   <!-- ajuste si besoin -->
-  ">
-</a-entity>
+    <!-- TARGET 1 : uniquement 3D (exemple) -->
+    <a-entity
+      mindar-image-target="targetIndex: 1"
+      ar-target-loader="modelsDir: ./models/target1/; modelRot: 0 180 0; modelScale: 0.6 0.6 0.6">
+    </a-entity>
 
-    <!-- Ajoute d'autres cibles de la même façon -->
+    <!--
+      Pour ajouter d'autres cibles :
+      <a-entity mindar-image-target="targetIndex: 2"
+                ar-target-loader="pngPrefix: ./animations/target2/frame_; fps: 12; unitWidth: 1; fit: width; modelsDir: ./models/target2/">
+      </a-entity>
+    -->
   </a-scene>
 </body>
 </html>

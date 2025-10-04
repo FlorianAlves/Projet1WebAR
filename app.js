@@ -1,24 +1,7 @@
-/***********************
+/************
  * Helpers
- ***********************/
+ ************/
 const log = (m, ...r) => console.log(`[ar] ${m}`, ...r);
-
-// HEAD pour éviter de tout télécharger (GitHub Pages ok)
-async function urlExists(url) {
-  try {
-    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-    return res.ok;
-  } catch { return false; }
-}
-
-function loadImageMeta(url) {
-  return new Promise((resolve, reject) => {
-    const im = new Image();
-    im.onload  = () => resolve({ width: im.naturalWidth || im.width, height: im.naturalHeight || im.height, src: url });
-    im.onerror = () => reject(new Error('IMAGE_NOT_FOUND'));
-    im.src = url;
-  });
-}
 
 /********************************************
  * Composant : png-sequence (auto-count)
@@ -30,8 +13,8 @@ if (!AFRAME.components['png-sequence']) {
       fps:       { type: 'number', default: 12 },
       pad:       { type: 'int',    default: 3 },   // 000-999
       start:     { type: 'int',    default: 0 },
-      max:       { type: 'int',    default: 300 }, // garde-fou
-      unitWidth: { type: 'number', default: 1 },   // largeur en unités AR
+      max:       { type: 'int',    default: 300 },
+      unitWidth: { type: 'number', default: 1 },
       fit:       { type: 'string', default: 'width' } // 'width' | 'height'
     },
 
@@ -46,15 +29,25 @@ if (!AFRAME.components['png-sequence']) {
 
       await new Promise(res => (this.el.hasLoaded ? res() : this.el.addEventListener('loaded', res, { once: true })));
 
-      // Découverte des frames
+      // Découverte des frames par essai
       const pad = n => n.toString().padStart(this.data.pad, '0');
       let i = this.data.start;
       while (i < this.data.max) {
         const url = `${this.data.prefix}${pad(i)}.png`;
-        try {
-          const meta = await loadImageMeta(url);
+        const ok = await new Promise(resolve => {
+          const im = new Image();
+          im.onload  = () => resolve(true);
+          im.onerror = () => resolve(false);
+          im.src = url;
+        });
+        if (ok) {
           if (this.frames.length === 0) {
-            const ratio = meta.height / meta.width; // h/w
+            // Charger la première pour ratio
+            const im = new Image();
+            await new Promise((resolve) => { im.onload = resolve; im.src = url; });
+            const iw = im.naturalWidth  || im.width  || 1;
+            const ih = im.naturalHeight || im.height || 1;
+            const ratio = ih / iw;
             if (this.data.fit === 'width') {
               const w = this.data.unitWidth, h = w * ratio;
               this.el.setAttribute('width', w);
@@ -65,22 +58,22 @@ if (!AFRAME.components['png-sequence']) {
               this.el.setAttribute('height', h);
             }
             this.el.setAttribute('material', 'transparent: true; alphaTest: 0.01; side: double');
-            this.el.setAttribute('src', meta.src); // anti flash blanc
+            this.el.setAttribute('src', url); // anti flash blanc
           }
-          this.frames.push(meta.src);
+          this.frames.push(url);
           i++;
-        } catch {
+        } else {
           if (this.frames.length > 0) break;
           i++;
         }
       }
 
       if (!this.frames.length) {
-        console.warn('[png-sequence] Aucune image trouvée pour', this.data.prefix);
+        log('[png] aucune image trouvée pour', this.data.prefix);
         return;
       }
 
-      // Précharge (non bloquant)
+      // Précharge non bloquant
       this.frames.forEach(u => { const im = new Image(); im.src = u; });
 
       this.ready = true;
@@ -117,7 +110,7 @@ if (!AFRAME.components['png-sequence']) {
 }
 
 /******************************************************
- * Composant : ar-target-loader (PNG + 3D via dossiers)
+ * Composant : ar-target-loader (PNG + 3D par dossiers)
  ******************************************************/
 if (!AFRAME.components['ar-target-loader']) {
   AFRAME.registerComponent('ar-target-loader', {
@@ -132,11 +125,11 @@ if (!AFRAME.components['ar-target-loader']) {
       modelsDir:   { type: 'string',  default: '' },
 
       // Options scan 3D
-      modelPad:    { type: 'int',     default: 3 },   // model_000.glb
+      modelPad:    { type: 'int',     default: 3 },    // model_000.glb
       modelStart:  { type: 'int',     default: 0 },
-      modelMax:    { type: 'int',     default: 50 },  // limite de sondes
+      modelMax:    { type: 'int',     default: 30 },   // limite raisonnable
       // Noms “classiques” essayés en premier
-      preferNames: { type: 'string',  default: 'model.glb,scene.glb,model.gltf,scene.gltf,index.glb,index.gltf' },
+      preferNames: { type: 'string',  default: 'model.glb,scene.glb,index.glb,model.gltf,scene.gltf,index.gltf' },
 
       // Placement 3D par défaut
       modelPos:    { type: 'string',  default: '0 0 0' },
@@ -144,7 +137,7 @@ if (!AFRAME.components['ar-target-loader']) {
       modelScale:  { type: 'string',  default: '1 1 1' },
 
       // Animation 3D
-      animClip:    { type: 'string',  default: '*' }, // * = toutes
+      animClip:    { type: 'string',  default: '*' },  // * = toutes
       animLoop:    { type: 'string',  default: 'repeat' }
     },
 
@@ -152,65 +145,61 @@ if (!AFRAME.components['ar-target-loader']) {
       const root = this.el;
       this.assets = { png: null, models: [] };
 
-      // 1) PNG (si demandé)
+      // 1) PNG
       if (this.data.pngPrefix) {
         const img = document.createElement('a-image');
         img.setAttribute('visible', 'false');
-        img.setAttribute('png-sequence', `
-          prefix: ${this.data.pngPrefix};
-          fps: ${this.data.fps};
-          unitWidth: ${this.data.unitWidth};
-          fit: ${this.data.fit}
-        `);
+        img.setAttribute('png-sequence',
+          `prefix: ${this.data.pngPrefix}; fps: ${this.data.fps}; unitWidth: ${this.data.unitWidth}; fit: ${this.data.fit}`);
         root.appendChild(img);
         this.assets.png = img;
       }
 
-      // 2) Scan dossier 3D (si fourni)
+      // 2) 3D : ESSAIS SANS HEAD — on crée les entités directement.
       if (this.data.modelsDir) {
         const dir = this.data.modelsDir.endsWith('/') ? this.data.modelsDir : this.data.modelsDir + '/';
 
-        // a) Noms “classiques” en priorité
+        // a) Noms “classiques”
         const preferred = this.data.preferNames.split(',').map(s => s.trim()).filter(Boolean);
-        const found = [];
+        let created = false;
         for (const name of preferred) {
           const url = dir + name;
-          // eslint-disable-next-line no-await-in-loop
-          if (await urlExists(url)) { found.push(url); break; } // on prend le premier trouvé
-        }
-
-        // b) Si rien trouvé, tenter une séquence : model_000.glb → …
-        if (found.length === 0) {
-          const pad = n => n.toString().padStart(this.data.modelPad, '0');
-          let i = this.data.modelStart;
-          while (i < this.data.modelMax) {
-            const glb = dir + `model_${pad(i)}.glb`;
-            const gltf = dir + `model_${pad(i)}.gltf`;
-            // eslint-disable-next-line no-await-in-loop
-            if (await urlExists(glb)) { found.push(glb); i++; continue; }
-            // eslint-disable-next-line no-await-in-loop
-            if (await urlExists(gltf)) { found.push(gltf); i++; continue; }
-            // trou : si on a déjà au moins un modèle, on s'arrête
-            if (found.length > 0) break;
-            i++;
-          }
-        }
-
-        // c) Instancier chaque modèle trouvé
-        for (const src of found) {
           const ent = document.createElement('a-entity');
           ent.setAttribute('visible', 'false');
-          ent.setAttribute('gltf-model', `url(${src})`);
+          ent.setAttribute('gltf-model', `url(${url})`);
           ent.setAttribute('position', this.data.modelPos);
           ent.setAttribute('rotation', this.data.modelRot);
           ent.setAttribute('scale',    this.data.modelScale);
           ent.setAttribute('animation-mixer', `clip: ${this.data.animClip}; loop: ${this.data.animLoop}; timeScale: 0`);
           root.appendChild(ent);
           this.assets.models.push(ent);
+          created = true;
+          // on s’arrête au premier réussi (si les autres 404, ça n’empêche rien)
+          break;
         }
 
-        if (!this.assets.models.length) {
-          log('Aucun modèle 3D trouvé dans', dir);
+        // b) Séquence model_000.glb → model_0xx.glb si rien en “classique”
+        if (!created) {
+          const pad = n => n.toString().padStart(this.data.modelPad, '0');
+          let any = false;
+          for (let i = this.data.modelStart; i < this.data.modelMax; i++) {
+            const glb = dir + `model_${pad(i)}.glb`;
+            const gltf = dir + `model_${pad(i)}.gltf`;
+            // on crée l'entité pour glb puis gltf (l’un des deux peut exister)
+            [glb, gltf].forEach(url => {
+              const ent = document.createElement('a-entity');
+              ent.setAttribute('visible', 'false');
+              ent.setAttribute('gltf-model', `url(${url})`);
+              ent.setAttribute('position', this.data.modelPos);
+              ent.setAttribute('rotation', this.data.modelRot);
+              ent.setAttribute('scale',    this.data.modelScale);
+              ent.setAttribute('animation-mixer', `clip: ${this.data.animClip}; loop: ${this.data.animLoop}; timeScale: 0`);
+              root.appendChild(ent);
+              this.assets.models.push(ent);
+              any = true;
+            });
+            if (any) break; // on arrête à la 1ère index valide potentielle
+          }
         }
       }
 
@@ -224,7 +213,7 @@ if (!AFRAME.components['ar-target-loader']) {
         this.assets.models.forEach(ent => {
           ent.setAttribute('visible', 'true');
           const am = ent.components['animation-mixer'];
-          if (am) { am.data.timeScale = 1; } // play
+          if (am) am.data.timeScale = 1;  // play
         });
       });
 
@@ -236,7 +225,7 @@ if (!AFRAME.components['ar-target-loader']) {
         }
         this.assets.models.forEach(ent => {
           const am = ent.components['animation-mixer'];
-          if (am) { am.data.timeScale = 0; } // pause
+          if (am) am.data.timeScale = 0;  // pause
           ent.setAttribute('visible', 'false');
         });
       });
