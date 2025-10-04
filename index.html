@@ -39,23 +39,31 @@
   >
     <a-camera look-controls="enabled: false"></a-camera>
 
-    <!-- Cible 0 -->
-    <a-entity mindar-image-target="targetIndex: 0">
-      <a-image
-        id="png-0"
-        png-sequence="prefix: ./animations/target0/frame_; fps: 12; unitWidth: 1; fit: width"
-        visible="false">
-      </a-image>
-    </a-entity>
+    <!-- Target 0 : PNG + 3D -->
+<a-entity
+  mindar-image-target="targetIndex: 0"
+  ar-target-loader="
+    pngPrefix: ./animations/target0/frame_;
+    fps: 12;
+    unitWidth: 1;
+    fit: width;
+    modelsDir: ./models/target0/;
+    modelScale: 0.5 0.5 0.5;   <!-- ajuste si besoin -->
+  ">
+</a-entity>
 
-    <!-- Cible 1 -->
-    <a-entity mindar-image-target="targetIndex: 1">
-      <a-image
-        id="png-1"
-        png-sequence="prefix: ./animations/target1/frame_; fps: 12; unitWidth: 1; fit: width"
-        visible="false">
-      </a-image>
-    </a-entity>
+    <!-- Target 1 : PNG + 3D -->
+<a-entity
+  mindar-image-target="targetIndex: 1"
+  ar-target-loader="
+    pngPrefix: ./animations/target1/frame_;
+    fps: 12;
+    unitWidth: 1;
+    fit: width;
+    modelsDir: ./models/target1/;
+    modelScale: 0.5 0.5 0.5;   <!-- ajuste si besoin -->
+  ">
+</a-entity>
 
     <!-- Ajoute d'autres cibles de la même façon -->
   </a-scene>
